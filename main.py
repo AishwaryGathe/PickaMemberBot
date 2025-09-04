@@ -1,46 +1,32 @@
-import os
-from flask import Flask
-from threading import Thread
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-import random
-
-# use PORT from Render
-PORT = int(os.environ.get("PORT", 8080))
+from telegram.ext import Application, CommandHandler, ChatMemberHandler, ContextTypes
+import os, random
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("BOT_TOKEN not set!")
 
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "✅ Bot is alive on Render"
-
-def run_flask():
-    app.run(host="0.0.0.0", port=PORT)
-
-# Telegram bot logic
 application = Application.builder().token(BOT_TOKEN).build()
-members = []
 
-async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user.first_name
-    if user not in members:
-        members.append(user)
-        await update.message.reply_text(f"{user} added!")
+members = set()  # store unique members
 
+# Track members joining
+async def track_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_member = update.chat_member.new_chat_member
+    if chat_member.status in ["member", "administrator"]:
+        user = chat_member.user.first_name
+        members.add(user)
+
+# Pick random member
 async def pick(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not members:
-        await update.message.reply_text("No members yet.")
+        await update.message.reply_text("No members tracked yet.")
     else:
-        choice = random.choice(members)
+        choice = random.choice(list(members))
         await update.message.reply_text(f"🎯 Picked: {choice}")
 
-application.add_handler(CommandHandler("add", add))
+application.add_handler(ChatMemberHandler(track_member, ChatMemberHandler.CHAT_MEMBER))
 application.add_handler(CommandHandler("pick", pick))
 
 if __name__ == "__main__":
-    Thread(target=run_flask).start()
     application.run_polling()
