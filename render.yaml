@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: pickamember-bot
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python3 main.py"
+    plan: free
+    envVars:
+      - key: BOT_TOKEN
+        sync: false   # set it manually in Render dashboard (for security)
